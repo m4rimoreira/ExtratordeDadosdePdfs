@@ -1,0 +1,7 @@
+__pycache__/
+.venv/
+*.pdf
+*.docx
+*.xlsx
+debug_logo/
+.env
