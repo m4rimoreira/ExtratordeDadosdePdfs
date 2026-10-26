@@ -3,7 +3,7 @@ os_extractor.py
 ----------------
 Automação para:
   1. Ler PDFs de Ordens de Serviço (OS) dentro de uma pasta.
-  2. Identificar o início de cada OS pela logo "GSM BAHIA" (verde + azul)
+  2. Identificar o início de cada OS pela logo (verde + azul)
      que aparece no topo da página.
   3. Extrair os campos de cada OS (Cliente, Assunto, Cidade, Consultor,
      Obs. do Técnico, Data agendada).
@@ -34,24 +34,12 @@ import fitz  # PyMuPDF
 import numpy as np
 from docx import Document
 
-# ---------------------------------------------------------------------------
-# 1) CONFIGURAÇÃO DA DETECÇÃO DO LOGO "GSM BAHIA"
-# ---------------------------------------------------------------------------
-# A logo costuma ficar no topo da página. Aqui só analisamos a faixa
-# superior (em % da altura) da página em busca de pixels verdes e azuis
-# nas faixas de cor típicas do logo.
-#
-# IMPORTANTE: esses valores são uma estimativa inicial. Rode com
-# --debug-logo em um PDF real e ajuste os ranges/limiares se necessário.
-LOGO_TOP_REGION = 0.20          # olha só os 20% superiores da página
-RENDER_DPI = 150                # resolução usada para renderizar a página
+LOGO_TOP_REGION = 0.20          
+RENDER_DPI = 150                
 
-# Faixas de cor em RGB: ((min_R, min_G, min_B), (max_R, max_G, max_B))
 GREEN_RANGE = ((20, 100, 20), (150, 220, 150))
 BLUE_RANGE = ((10, 60, 120), (120, 170, 255))
 
-# Nº mínimo de pixels de cada cor (dentro da faixa) para considerar que a
-# logo foi encontrada naquela página.
 MIN_COLOR_PIXELS = 120
 
 
@@ -62,8 +50,6 @@ def _color_mask(region: np.ndarray, color_range) -> np.ndarray:
 
 
 def page_has_logo(page: "fitz.Page") -> bool:
-    """Renderiza a faixa superior da página e verifica se há quantidade
-    significativa de pixels verdes E azuis (cores do logo GSM Bahia)."""
     pix = page.get_pixmap(dpi=RENDER_DPI)
     img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
 
@@ -77,8 +63,6 @@ def page_has_logo(page: "fitz.Page") -> bool:
 
 
 def debug_logo_detection(pdf_path: str, out_dir: str = "debug_logo") -> None:
-    """Salva um recorte da faixa superior de cada página + um relatório
-    .txt dizendo se a logo foi detectada. Use para calibrar as cores."""
     os.makedirs(out_dir, exist_ok=True)
     doc = fitz.open(pdf_path)
     base_name = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -101,11 +85,6 @@ def debug_logo_detection(pdf_path: str, out_dir: str = "debug_logo") -> None:
     doc.close()
     print(f"[debug] Recortes e relatório salvos em: {out_dir}/")
 
-
-# ---------------------------------------------------------------------------
-# 2) EXTRAÇÃO DOS CAMPOS DE CADA OS
-# ---------------------------------------------------------------------------
-# Mapeamento: rótulo como aparece no PDF -> nome que deve aparecer no relatório
 LABELS_PDF_TO_REPORT = {
     "Cliente": "Nome do Cliente",
     "Assunto": "Descrição da OS",
@@ -118,8 +97,6 @@ ORDERED_LABELS = list(LABELS_PDF_TO_REPORT.keys())
 
 
 def extract_fields(text: str) -> dict:
-    """Extrai, de um bloco de texto de uma OS, o valor de cada rótulo
-    conhecido, parando sempre no próximo rótulo encontrado."""
     labels_alt = "|".join(re.escape(l) for l in ORDERED_LABELS)
     result = {}
 
@@ -132,13 +109,7 @@ def extract_fields(text: str) -> dict:
 
     return result
 
-
-# ---------------------------------------------------------------------------
-# 3) LEITURA DOS PDFs E DIVISÃO EM BLOCOS DE OS
-# ---------------------------------------------------------------------------
 def split_into_os_blocks(doc: "fitz.Document") -> list:
-    """Percorre as páginas do PDF e agrupa o texto de cada OS, usando a
-    detecção da logo como marcador de início de uma nova OS."""
     blocks = []
     current_pages_text = []
 
@@ -178,10 +149,6 @@ def process_folder(folder: str) -> list:
 
     return all_entries
 
-
-# ---------------------------------------------------------------------------
-# 4) GERAÇÃO DO RELATÓRIO .DOCX
-# ---------------------------------------------------------------------------
 def build_docx(entries: list, output_path: str) -> None:
     document = Document()
     document.add_heading("Relatório de Ordens de Serviço", level=1)
@@ -195,9 +162,7 @@ def build_docx(entries: list, output_path: str) -> None:
             run_label.bold = True
             p.add_run(value if value else "(não encontrado)")
 
-    # -----------------------------------------------------------------
-    # RANKING DE CIDADES
-    # -----------------------------------------------------------------
+
     document.add_page_break()
     document.add_heading("Ranking de Cidades com Mais Ordens de Serviço", level=1)
 
@@ -221,9 +186,6 @@ def build_docx(entries: list, output_path: str) -> None:
     document.save(output_path)
 
 
-# ---------------------------------------------------------------------------
-# 5) EXECUÇÃO
-# ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(
         description="Extrai Ordens de Serviço de PDFs e gera um relatório .docx"
